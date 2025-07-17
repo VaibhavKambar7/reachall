@@ -64,21 +64,3 @@ export async function verifyEmail(email: string): Promise<{
     });
   });
 }
-
-const main = async () => {
-  const filtered_emails: string[] = [];
-
-  Promise.all(
-    emails.map((email) =>
-      verifyEmail(email).then((res) => {
-        if (res.valid) {
-          filtered_emails.push(res.email);
-        }
-      }),
-    ),
-  ).then(() => {
-    console.log(filtered_emails);
-  });
-};
-
-main();
