@@ -36,16 +36,48 @@ export async function POST(req: NextRequest) {
 
     const fromAddress = `"Reachall" <${process.env.GMAIL_USER}>`;
 
-    const result = await orchestrateColdEmails({
-      companyName,
-      companyWebsite,
-      emailSubject,
-      emailBody,
-      role,
-      fromAddress,
+    // Create a readable stream for Server-Sent Events
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Generator function that yields progress updates
+          const progressGenerator = orchestrateColdEmails({
+            companyName,
+            companyWebsite,
+            emailSubject,
+            emailBody,
+            role,
+            fromAddress,
+          });
+
+          for await (const update of progressGenerator) {
+            const data = `data: ${JSON.stringify(update)}\n\n`;
+            controller.enqueue(encoder.encode(data));
+          }
+
+          controller.close();
+        } catch (error) {
+          const errorUpdate = {
+            type: "error",
+            success: false,
+            message: "An internal server error occurred.",
+            error: (error as Error).message,
+          };
+          const data = `data: ${JSON.stringify(errorUpdate)}\n\n`;
+          controller.enqueue(encoder.encode(data));
+          controller.close();
+        }
+      },
     });
 
-    return NextResponse.json(result);
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   } catch (error) {
     console.error("API Route Error:", error);
 
